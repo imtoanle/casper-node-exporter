@@ -24,8 +24,6 @@ let validatorData = {
 };
 
 (async function requestRPC() {
-  console.log("Running: " + Date.now());
-  
   casperClient.getValidatorsInfo()
     .then(data => preparingBidData(data));
 
@@ -93,7 +91,7 @@ function calculateDelegatorStakedAmount(data) {
 }
 
 function convertToCSPR(motes) {
-  return parseInt(motes) / 1e9;
+  return Math.trunc(parseInt(motes) / 1e9);
 }
 // async function getValidatorInfo() {
 //   return await casperClient.getValidatorsInfo();
