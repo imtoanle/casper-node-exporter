@@ -71,11 +71,13 @@ let validatorData = {
         }
       }).filter(x => x != undefined).reduce((a, b) => a + b);
       
+      register.removeSingleMetric("casper_validator_era_rewards");
       validatorData.era_reward = {
         era_id: eraInfo.eraId,
         rewards: era_rewards,
         apr: calculateAPR(era_rewards)
       }
+      register.registerMetric(casper_validator_era_rewards);
     }
 
     currentBlockHeight--;
@@ -251,7 +253,6 @@ register.registerMetric(casper_validator_block_local_height);
 register.registerMetric(casper_validator_block_local_era);
 register.registerMetric(casper_validator_build_version);
 register.registerMetric(casper_validator_next_upgrade);
-register.registerMetric(casper_validator_era_rewards);
 register.registerMetric(casper_validator_current_apr);
 register.registerMetric(casper_validator_position);
 
