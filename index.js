@@ -29,63 +29,6 @@ let validatorData = {
   position: NaN
 };
 
-(async function requestRPC() {
-  casperClient.getValidatorsInfo()
-    .then(data => preparingBidData(data));
-
-  casperClient.getStatus()
-    .then(data => preparingNodeData(data));
-
-  // casperClient.getLatestBlockInfo()
-  //   .then(latestBlockInfo => {
-  //     let currentBlockHeight = latestBlockInfo.block.header.height;
-  //     let currentEra = latestBlockInfo.block.header.era_id;
-
-  //     return casperClient.getEraInfoBySwitchBlockHeight(currentBlockHeight)
-  //   })
-  //   .then(data)
-    
-    // casperClient.getEraInfoBySwitchBlock({height: "75ede32d74694aea34cc8aa70da1a3d6c780a8022a06a5dd518e397674ab9401"}).then(data => { abc1 = data});
-
-  setTimeout(requestRPC, 60000);
-})();
-
-(async function requestEraInfo() {
-  let foundBlock = false;
-  let latestBlockInfo = await casperClient.getLatestBlockInfo();
-  let currentBlockHeight = latestBlockInfo.block.header.height;
-  let eraInfo;
-
-  while (!foundBlock) {
-    eraInfo = await casperClient.getEraInfoBySwitchBlockHeight(currentBlockHeight);
-
-    if (eraInfo) {
-      console.log("Found Block: " + currentBlockHeight);
-      foundBlock = true;
-
-      let era_rewards = eraInfo.StoredValue.EraInfo.seigniorageAllocations.map( x => {
-        if (x.Delegator && x.Delegator.validatorPublicKey == VALIDATOR_PUBLIC_KEY) {
-          return convertToCSPR(x.Delegator.amount);
-        } else if ((x.Validator && x.Validator.validatorPublicKey == VALIDATOR_PUBLIC_KEY)) {
-          return convertToCSPR(x.Validator.amount);
-        }
-      }).filter(x => x != undefined).reduce((a, b) => a + b);
-      
-      register.removeSingleMetric("casper_validator_era_rewards");
-      validatorData.era_reward = {
-        era_id: eraInfo.eraId,
-        rewards: era_rewards,
-        apr: calculateAPR(era_rewards)
-      }
-      register.registerMetric(casper_validator_era_rewards);
-    }
-
-    currentBlockHeight--;
-    await sleep(1000);
-  }
-  setTimeout(requestEraInfo, 60*60*1000);
-})();
-
 function sleep(ms) {
   return new Promise(
     resolve => setTimeout(resolve, ms)
@@ -222,10 +165,7 @@ const casper_validator_next_upgrade = new client.Gauge({
 const casper_validator_era_rewards = new client.Gauge({
   name: 'casper_validator_era_rewards',
   help: 'Casper Current Era Rewards',
-  labelNames: ['era_id'],
-  async collect() {
-    this.set({ era_id: validatorData.era_reward.era_id }, validatorData.era_reward.rewards);
-  },
+  labelNames: ['era_id']
 });
 
 const casper_validator_current_apr = new client.Gauge({
@@ -255,6 +195,54 @@ register.registerMetric(casper_validator_build_version);
 register.registerMetric(casper_validator_next_upgrade);
 register.registerMetric(casper_validator_current_apr);
 register.registerMetric(casper_validator_position);
+register.registerMetric(casper_validator_era_rewards);
+
+(async function requestRPC() {
+  casperClient.getValidatorsInfo()
+    .then(data => preparingBidData(data));
+
+  casperClient.getStatus()
+    .then(data => preparingNodeData(data));
+
+  setTimeout(requestRPC, 60000);
+})();
+
+(async function requestEraInfo() {
+  let foundBlock = false;
+  let latestBlockInfo = await casperClient.getLatestBlockInfo();
+  let currentBlockHeight = latestBlockInfo.block.header.height;
+  let eraInfo;
+
+  while (!foundBlock) {
+    eraInfo = await casperClient.getEraInfoBySwitchBlockHeight(currentBlockHeight);
+
+    if (eraInfo) {
+      console.log("Found Block: " + currentBlockHeight);
+      foundBlock = true;
+
+      let era_rewards = eraInfo.StoredValue.EraInfo.seigniorageAllocations.map( x => {
+        if (x.Delegator && x.Delegator.validatorPublicKey == VALIDATOR_PUBLIC_KEY) {
+          return convertToCSPR(x.Delegator.amount);
+        } else if ((x.Validator && x.Validator.validatorPublicKey == VALIDATOR_PUBLIC_KEY)) {
+          return convertToCSPR(x.Validator.amount);
+        }
+      }).filter(x => x != undefined).reduce((a, b) => a + b);
+      
+      validatorData.era_reward = {
+        era_id: eraInfo.eraId,
+        rewards: era_rewards,
+        apr: calculateAPR(era_rewards)
+      }
+
+      casper_validator_era_rewards.reset();
+      casper_validator_era_rewards.set({ era_id: validatorData.era_reward.era_id }, validatorData.era_reward.rewards);
+    }
+
+    currentBlockHeight--;
+    await sleep(1000);
+  }
+  setTimeout(requestEraInfo, 60*60*1000);
+})();
 
 app.get('/metrics', async (req, res) => {
     res.setHeader('Content-Type', register.contentType);
