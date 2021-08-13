@@ -53,6 +53,9 @@ function preparingNodeData(data) {
     let lastBlock = data.last_added_block_info;
     
     metrics.casper_validator_block_local_height.set(lastBlock.height);
+    if (metrics.casper_validator_block_local_era._getValue() != lastBlock.era_id) {
+      requestEraInfo();
+    }
     metrics.casper_validator_block_local_era.set(lastBlock.era_id);
   } catch (error) {
     metrics.casper_validator_is_active.set(0);
@@ -87,17 +90,7 @@ function isValidatorActive(bidData) {
   return (bidData.bid.inactive == false && getLatestReward() != 0) ? 1 : 0;
 }
 
-(async function requestRPC() {
-  casperClient.getValidatorsInfo()
-    .then(data => preparingBidData(data));
-
-  casperClient.getStatus()
-    .then(data => preparingNodeData(data));
-
-  setTimeout(requestRPC, 60000);
-})();
-
-(async function requestEraInfo() {
+async function requestEraInfo() {
   let foundBlock = false;
   let latestBlockInfo = await casperClient.getLatestBlockInfo();
   let currentBlockHeight = latestBlockInfo.block.header.height;
@@ -125,7 +118,16 @@ function isValidatorActive(bidData) {
     currentBlockHeight--;
     await sleep(1000);
   }
-  setTimeout(requestEraInfo, 60*60*1000);
+}
+
+(async function requestRPC() {
+  casperClient.getValidatorsInfo()
+    .then(data => preparingBidData(data));
+
+  casperClient.getStatus()
+    .then(data => preparingNodeData(data));
+
+  setTimeout(requestRPC, 60000);
 })();
 
 (async function checkNextUpgradeFromOtherNodes() {
