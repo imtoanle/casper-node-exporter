@@ -53,6 +53,7 @@ function preparingNodeData(data) {
     let lastBlock = data.last_added_block_info;
     
     metrics.casper_validator_block_local_height.set(lastBlock.height);
+    metrics.casper_validator_build_version.set({ node_ip: OUR_NODE, api_version: data.api_version }, 1);
     if (metrics.casper_validator_block_local_era._getValue() != lastBlock.era_id) {
       requestEraInfo();
     }
