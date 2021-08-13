@@ -2,14 +2,22 @@ require('dotenv').config();
 
 var metrics = require('./register');
 
-const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:7777/rpc';
+const OUR_NODE = process.env.OUR_NODE || '127.0.0.1';
 const VALIDATOR_PUBLIC_KEY = process.env.VALIDATOR_PUBLIC_KEY;
 const PORT = process.env.PORT || 8111;
+const KNOWN_NODES = [
+  "47.251.14.254",
+  "206.189.47.102",
+  "134.209.243.124",
+  "148.251.190.103",
+  "167.172.32.44",
+  OUR_NODE
+];
 
 const express = require('express');
 const app = express();
 const casper = require('casper-js-sdk');
-const casperClient = new casper.CasperServiceByJsonRPC(RPC_URL);
+const casperClient = new casper.CasperServiceByJsonRPC(`http://${OUR_NODE}:7777/rpc`);
 
 function sleep(ms) {
   return new Promise(
@@ -46,8 +54,6 @@ function preparingNodeData(data) {
     
     metrics.casper_validator_block_local_height.set(lastBlock.height);
     metrics.casper_validator_block_local_era.set(lastBlock.era_id);
-    metrics.casper_validator_build_version.set({ build_version: data.build_version }, 1);
-    metrics.casper_validator_next_upgrade.set(data.next_upgrade || 0);
   } catch (error) {
     metrics.casper_validator_is_active.set(0);
   }
@@ -97,8 +103,7 @@ function convertToCSPR(motes) {
         } else if ((x.Validator && x.Validator.validatorPublicKey == VALIDATOR_PUBLIC_KEY)) {
           return convertToCSPR(x.Validator.amount);
         }
-      }).filter(x => x != undefined).reduce((a, b) => a + b);
-      
+      }).filter(x => x != undefined).reduce((a, b) => a + b, 0);
       metrics.casper_validator_current_apr.set(calculateAPR(era_rewards));
       metrics.casper_validator_era_rewards.reset();
       metrics.casper_validator_era_rewards.set({ era_id: eraInfo.eraId }, era_rewards);
@@ -108,6 +113,37 @@ function convertToCSPR(motes) {
     await sleep(1000);
   }
   setTimeout(requestEraInfo, 60*60*1000);
+})();
+
+(async function checkNextUpgradeFromOtherNodes() {
+  let theirVersion = null;
+  let theirNextVersion = null
+
+  KNOWN_NODES.forEach(ip => {
+    let cClient = new casper.CasperServiceByJsonRPC(`http://${ip}:7777/rpc`);
+    cClient.getStatus()
+      .then(data => {
+        theirVersion = data.api_version;
+
+        if (data.next_upgrade) {
+          metrics.casper_validator_next_upgrade.set({ node_ip: ip, next_version: data.next_upgrade.protocol_version }, 1);
+          if (theirNextVersion < data.next_upgrade.protocol_version) {
+            theirNextVersion = data.next_upgrade.protocol_version;
+          }
+        }
+
+        if (ip == OUR_NODE) {
+          if ((data.api_version != theirVersion) || (theirNextVersion && (!data.next_upgrade || data.next_upgrade.protocol_version != theirNextVersion))) {
+            // Should upgrade now
+            metrics.casper_validator_should_be_upgraded.set(1);
+          }
+        }
+      });
+    
+    sleep(1000);
+  });
+
+  setTimeout(checkNextUpgradeFromOtherNodes, 60*60*1000);
 })();
 
 app.get('/metrics', async (req, res) => {

@@ -46,7 +46,13 @@ const casper_validator_build_version = new client.Gauge({
 
 const casper_validator_next_upgrade = new client.Gauge({
   name: 'casper_validator_next_upgrade',
-  help: 'Casper Next Upgrade'
+  help: 'Casper Next Upgrade',
+  labelNames: ['node_ip', 'next_version']
+});
+
+const casper_validator_should_be_upgraded = new client.Gauge({
+  name: 'casper_validator_should_be_upgraded',
+  help: 'Casper Next Should Be Upgraded'
 });
 
 const casper_validator_era_rewards = new client.Gauge({
@@ -74,6 +80,7 @@ register.registerMetric(casper_validator_block_local_height);
 register.registerMetric(casper_validator_block_local_era);
 register.registerMetric(casper_validator_build_version);
 register.registerMetric(casper_validator_next_upgrade);
+register.registerMetric(casper_validator_should_be_upgraded);
 register.registerMetric(casper_validator_current_apr);
 register.registerMetric(casper_validator_position);
 register.registerMetric(casper_validator_era_rewards);
@@ -88,6 +95,7 @@ module.exports = {
   casper_validator_block_local_era,
   casper_validator_build_version,
   casper_validator_next_upgrade,
+  casper_validator_should_be_upgraded,
   casper_validator_current_apr,
   casper_validator_position,
   casper_validator_era_rewards,
