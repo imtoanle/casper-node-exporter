@@ -41,7 +41,7 @@ function preparingBidData(data) {
     metrics.casper_validator_delegator_staked_amount.set(delegatorStakedAmount);
     metrics.casper_validator_total_staked_amount.set(selfStakedAmount + delegatorStakedAmount);
     metrics.casper_validator_delegation_rate.set(bidData.bid.delegation_rate);
-    metrics.casper_validator_is_active.set(bidData.bid.inactive == false ? 1 : 0);
+    metrics.casper_validator_is_active.set(isValidatorActive(bidData));
     metrics.casper_validator_position.set(findValidatorPosition(data.auction_state.bids));
   } catch (error) {
     metrics.casper_validator_is_active.set(0);
@@ -72,6 +72,19 @@ function calculateDelegatorStakedAmount(data) {
 
 function convertToCSPR(motes) {
   return Math.trunc(parseInt(motes) / 1e9);
+}
+
+function getLatestReward() {
+  try {
+    let rewardKeys = Object.keys(metrics.casper_validator_era_rewards.hashMap);
+    return metrics.casper_validator_era_rewards.hashMap[rewardKeys[rewardKeys.length - 1]].value;
+  } catch (error) {
+    return 0;
+  }
+}
+
+function isValidatorActive(bidData) {
+  return (bidData.bid.inactive == false && getLatestReward() != 0) ? 1 : 0;
 }
 
 (async function requestRPC() {
