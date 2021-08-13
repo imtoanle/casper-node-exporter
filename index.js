@@ -143,7 +143,7 @@ function convertToCSPR(motes) {
     sleep(1000);
   });
 
-  setTimeout(checkNextUpgradeFromOtherNodes, 60*60*1000);
+  setTimeout(checkNextUpgradeFromOtherNodes, 120*60*1000);
 })();
 
 app.get('/metrics', async (req, res) => {
