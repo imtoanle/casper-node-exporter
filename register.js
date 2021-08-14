@@ -71,6 +71,11 @@ const casper_validator_position = new client.Gauge({
   help: 'Casper Validator Position'
 });
 
+const casper_validator_peers = new client.Gauge({
+  name: 'casper_validator_peers',
+  help: 'Casper Validator Peers'
+});
+
 register.registerMetric(casper_validator_self_staked_amount);
 register.registerMetric(casper_validator_delegator_staked_amount);
 register.registerMetric(casper_validator_total_staked_amount);
@@ -84,6 +89,7 @@ register.registerMetric(casper_validator_should_be_upgraded);
 register.registerMetric(casper_validator_current_apr);
 register.registerMetric(casper_validator_position);
 register.registerMetric(casper_validator_era_rewards);
+register.registerMetric(casper_validator_peers);
 
 module.exports = {
   casper_validator_self_staked_amount,
@@ -99,5 +105,6 @@ module.exports = {
   casper_validator_current_apr,
   casper_validator_position,
   casper_validator_era_rewards,
+  casper_validator_peers,
   register
 };
