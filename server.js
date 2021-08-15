@@ -128,7 +128,7 @@ function findOurNodePublicIp(peers) {
 }
 
 (async function checkNextUpgradeFromOtherNodes() {
-  let otherNodeVersion = null, otherNodeNextVersion = null;
+  let otherNodeVersion = otherNodeNextVersion = '';
 
   OTHER_NODES.forEach(ip => {
     let cClient = new casper.CasperServiceByJsonRPC(`http://${ip}:7777/rpc`);
