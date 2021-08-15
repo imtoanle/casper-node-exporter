@@ -1,9 +1,11 @@
 require('dotenv').config();
 
 var metrics = require('./register');
+var nodePublicIP;
 
 const OUR_NODE = process.env.OUR_NODE || '127.0.0.1';
 const VALIDATOR_PUBLIC_KEY = process.env.VALIDATOR_PUBLIC_KEY;
+const NODE_ID = process.env.NODE_ID;
 const PORT = process.env.PORT || 8111;
 const KNOWN_NODES = [
   "47.251.14.254",
@@ -53,7 +55,10 @@ function preparingNodeData(data) {
     let lastBlock = data.last_added_block_info;
     
     metrics.casper_validator_block_local_height.set(lastBlock.height);
-    metrics.casper_validator_build_version.set({ node_ip: OUR_NODE, api_version: data.api_version }, 1);
+
+    if (nodePublicIP)
+      metrics.casper_validator_build_version.set({ public_ip: nodePublicIP, local_ip: OUR_NODE, api_version: data.api_version }, 1);
+
     metrics.casper_validator_peers.set(data.peers.length);
     if (metrics.casper_validator_block_local_era._getValue() != lastBlock.era_id) {
       requestEraInfo();
@@ -138,8 +143,13 @@ async function requestEraInfo() {
 
   KNOWN_NODES.forEach(ip => {
     let cClient = new casper.CasperServiceByJsonRPC(`http://${ip}:7777/rpc`);
+    let ourPeer;
+
     cClient.getStatus()
       .then(data => {
+        ourPeer = data.peers.filter(x => x.node_id == NODE_ID)[0];
+        if (ourPeer) nodePublicIP = ourPeer.address.split(':')[0];
+
         theirVersion = data.api_version;
 
         if (data.next_upgrade) {
