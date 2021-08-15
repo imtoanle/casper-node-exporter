@@ -127,6 +127,16 @@ function findOurNodePublicIp(peers) {
   } catch (error) { return null; }
 }
 
+(async function requestRPC() {
+  casperClient.getValidatorsInfo()
+    .then(data => preparingBidData(data));
+
+  casperClient.getStatus()
+    .then(data => preparingNodeData(data));
+
+  setTimeout(requestRPC, 60000);
+})();
+
 (async function checkNextUpgradeFromOtherNodes() {
   let otherNodeVersion = otherNodeNextVersion = '';
 
@@ -152,16 +162,6 @@ function findOurNodePublicIp(peers) {
     metrics.casper_validator_should_be_upgraded.set(0);
 
   setTimeout(checkNextUpgradeFromOtherNodes, 10*60*1000);
-})();
-
-(async function requestRPC() {
-  casperClient.getValidatorsInfo()
-    .then(data => preparingBidData(data));
-
-  casperClient.getStatus()
-    .then(data => preparingNodeData(data));
-
-  setTimeout(requestRPC, 60000);
 })();
 
 app.get('/metrics', async (req, res) => {
