@@ -156,10 +156,11 @@ function findOurNodePublicIp(peers) {
     sleep(1000);
   });
 
-  if ((validatorInfo.current_version != otherNodeVersion) || (otherNodeNextVersion && (!validatorInfo.next_version || validatorInfo.next_version != otherNodeNextVersion)))
+  if ((validatorInfo.current_version < otherNodeVersion) || (otherNodeNextVersion && (!validatorInfo.next_version || validatorInfo.next_version != otherNodeNextVersion))) {
     metrics.casper_validator_should_be_upgraded.set(1);
-  else
+  } else {
     metrics.casper_validator_should_be_upgraded.set(0);
+  }
 
   setTimeout(checkNextUpgradeFromOtherNodes, 10*60*1000);
 })();
