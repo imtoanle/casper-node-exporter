@@ -151,7 +151,7 @@ function findOurNodePublicIp(peers) {
   else
     metrics.casper_validator_should_be_upgraded.set(0);
 
-  setTimeout(checkNextUpgradeFromOtherNodes, 120*60*1000);
+  setTimeout(checkNextUpgradeFromOtherNodes, 10*60*1000);
 })();
 
 (async function requestRPC() {
