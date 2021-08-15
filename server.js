@@ -1,19 +1,22 @@
 require('dotenv').config();
 
 var metrics = require('./register');
-var nodePublicIP;
+var validatorInfo = {
+  current_version: null,
+  next_version: null,
+  public_ip: null
+};
 
 const OUR_NODE = process.env.OUR_NODE || '127.0.0.1';
 const VALIDATOR_PUBLIC_KEY = process.env.VALIDATOR_PUBLIC_KEY;
 const NODE_ID = process.env.NODE_ID;
 const PORT = process.env.PORT || 8111;
-const KNOWN_NODES = [
+const OTHER_NODES = [
   "47.251.14.254",
   "206.189.47.102",
   "134.209.243.124",
   "148.251.190.103",
-  "167.172.32.44",
-  OUR_NODE
+  "167.172.32.44"
 ];
 
 const express = require('express');
@@ -27,53 +30,39 @@ function sleep(ms) {
   );
 }
 
-function calculateAPR(era_rewards){
-  if (metrics.casper_validator_total_staked_amount._getValue()) {
-    return parseFloat((era_rewards * 12 * 365 / metrics.casper_validator_total_staked_amount._getValue() * 100).toFixed(2));
-  } else { return 0; }
-}
-
 function preparingBidData(data) {
-  try {
-    let bidData = data.auction_state.bids.filter((obj) => obj.public_key == VALIDATOR_PUBLIC_KEY)[0];
-    let selfStakedAmount = convertToCSPR(bidData.bid.staked_amount);
-    let delegatorStakedAmount = calculateDelegatorStakedAmount(bidData);
+  let bidData = data.auction_state.bids.filter((obj) => obj.public_key == VALIDATOR_PUBLIC_KEY)[0];
+  let selfStakedAmount = convertToCSPR(bidData.bid.staked_amount);
+  let delegatorStakedAmount = calculateDelegatorStakedAmount(bidData);
 
-    metrics.casper_validator_self_staked_amount.set(selfStakedAmount);
-    metrics.casper_validator_delegator_staked_amount.set(delegatorStakedAmount);
-    metrics.casper_validator_total_staked_amount.set(selfStakedAmount + delegatorStakedAmount);
-    metrics.casper_validator_delegation_rate.set(bidData.bid.delegation_rate);
-    metrics.casper_validator_is_active.set(isValidatorActive(bidData));
-    metrics.casper_validator_position.set(findValidatorPosition(data.auction_state.bids));
-  } catch (error) {
-    metrics.casper_validator_is_active.set(0);
-  }
+  metrics.casper_validator_self_staked_amount.set(selfStakedAmount);
+  metrics.casper_validator_delegator_staked_amount.set(delegatorStakedAmount);
+  metrics.casper_validator_total_staked_amount.set(selfStakedAmount + delegatorStakedAmount);
+  metrics.casper_validator_delegation_rate.set(bidData.bid.delegation_rate);
+  metrics.casper_validator_is_active.set(isValidatorActive(bidData));
+  metrics.casper_validator_position.set(findValidatorPosition(data.auction_state.era_validators));
 }
 
 function preparingNodeData(data) {
-  try {
-    let lastBlock = data.last_added_block_info;
-    
-    metrics.casper_validator_block_local_height.set(lastBlock.height);
+  let lastAddedBlock = data.last_added_block_info;
+  
+  metrics.casper_validator_block_local_height.set(lastAddedBlock.height);
+  metrics.casper_validator_peers.set(data.peers.length);
+  metrics.casper_validator_build_version.reset();
+  metrics.casper_validator_build_version.set({ public_ip: validatorInfo.public_ip, local_ip: OUR_NODE, api_version: data.api_version }, 1);
 
-    if (nodePublicIP)
-      metrics.casper_validator_build_version.set({ public_ip: nodePublicIP, local_ip: OUR_NODE, api_version: data.api_version }, 1);
-
-    metrics.casper_validator_peers.set(data.peers.length);
-    if (metrics.casper_validator_block_local_era._getValue() != lastBlock.era_id) {
-      requestEraInfo();
-    }
-    metrics.casper_validator_block_local_era.set(lastBlock.era_id);
-  } catch (error) {
-    metrics.casper_validator_is_active.set(0);
-  }
+  validatorInfo.current_version = data.api_version;
+  validatorInfo.next_version = data.next_upgrade && data.next_upgrade.protocol_version;
+  
+  if (metrics.casper_validator_block_local_era._getValue() != lastAddedBlock.era_id)
+    requestEraInfo();
+  metrics.casper_validator_block_local_era.set(lastAddedBlock.era_id);
 }
 
-function findValidatorPosition(bidData) {
-  return bidData
-    .map( b => { return {publicKey: b.public_key, totalStaked: (convertToCSPR(b.bid.staked_amount) + calculateDelegatorStakedAmount(b))} })
-    .sort((a, b) => b.totalStaked - a.totalStaked)
-    .findIndex(a => a.publicKey == VALIDATOR_PUBLIC_KEY) + 1;
+function findValidatorPosition(eraValidators) {
+  return eraValidators[1].validator_weights
+    .sort((a, b) => b.weight - a.weight)
+    .findIndex(a => a.public_key == VALIDATOR_PUBLIC_KEY) + 1;
 }
 
 function calculateDelegatorStakedAmount(data) {
@@ -88,44 +77,80 @@ function getLatestReward() {
   try {
     let rewardKeys = Object.keys(metrics.casper_validator_era_rewards.hashMap);
     return metrics.casper_validator_era_rewards.hashMap[rewardKeys[rewardKeys.length - 1]].value;
-  } catch (error) {
-    return 0;
-  }
+  } catch (error) { return 0; }
 }
 
 function isValidatorActive(bidData) {
-  return (bidData.bid.inactive == false && getLatestReward() != 0) ? 1 : 0;
+  return (bidData.bid.inactive == false && getLatestReward() > 0) ? 1 : 0;
+}
+
+function calculateEraRewards(eraInfo) {
+  return eraInfo.StoredValue.EraInfo.seigniorageAllocations
+    .map(x => x.Delegator || x.Validator)
+    .filter(x => x && x.validatorPublicKey == VALIDATOR_PUBLIC_KEY)
+    .map(x => convertToCSPR(x.amount))
+    .reduce((a, b) => a + b, 0);
+}
+
+function calculateAPR(){
+  return getLatestReward() * 12 * 365 / metrics.casper_validator_total_staked_amount._getValue() * 100;
+}
+
+function setRewardsMetrics(eraInfo) {
+  let eraRewards = calculateEraRewards(eraInfo);
+
+  metrics.casper_validator_era_rewards.reset();
+  metrics.casper_validator_era_rewards.set({ era_id: eraInfo.eraId }, eraRewards);
+  metrics.casper_validator_current_apr.set(calculateAPR());
 }
 
 async function requestEraInfo() {
-  let foundBlock = false;
-  let latestBlockInfo = await casperClient.getLatestBlockInfo();
-  let currentBlockHeight = latestBlockInfo.block.header.height;
   let eraInfo;
+  let currentBlockHeight = (await casperClient.getLatestBlockInfo()).block.header.height;
 
-  while (!foundBlock) {
+  while (true) {
     eraInfo = await casperClient.getEraInfoBySwitchBlockHeight(currentBlockHeight);
 
     if (eraInfo) {
-      console.log("Found Block: " + currentBlockHeight);
-      foundBlock = true;
-
-      let era_rewards = eraInfo.StoredValue.EraInfo.seigniorageAllocations.map( x => {
-        if (x.Delegator && x.Delegator.validatorPublicKey == VALIDATOR_PUBLIC_KEY) {
-          return convertToCSPR(x.Delegator.amount);
-        } else if ((x.Validator && x.Validator.validatorPublicKey == VALIDATOR_PUBLIC_KEY)) {
-          return convertToCSPR(x.Validator.amount);
-        }
-      }).filter(x => x != undefined).reduce((a, b) => a + b, 0);
-      metrics.casper_validator_current_apr.set(calculateAPR(era_rewards));
-      metrics.casper_validator_era_rewards.reset();
-      metrics.casper_validator_era_rewards.set({ era_id: eraInfo.eraId }, era_rewards);
+      setRewardsMetrics(eraInfo);
+      return;
     }
 
     currentBlockHeight--;
     await sleep(1000);
   }
 }
+
+function findOurNodePublicIp(peers) {
+  try {
+    return peers.filter(x => x.node_id == NODE_ID)[0].address.split(':')[0];
+  } catch (error) { return null; }
+}
+
+(async function checkNextUpgradeFromOtherNodes() {
+  let otherNodeVersion = null, otherNodeNextVersion = null;
+
+  OTHER_NODES.forEach(ip => {
+    let cClient = new casper.CasperServiceByJsonRPC(`http://${ip}:7777/rpc`);
+
+    cClient.getStatus()
+      .then(data => {
+        validatorInfo.public_ip = findOurNodePublicIp(data.peers);
+
+        if (data.api_version > otherNodeVersion)
+          otherNodeVersion = data.api_version;
+        if (data.next_upgrade && otherNodeNextVersion < data.next_upgrade.protocol_version)
+          otherNodeNextVersion = data.next_upgrade.protocol_version;
+      });
+    
+    sleep(1000);
+  });
+
+  if ((validatorInfo.current_version != otherNodeVersion) || (otherNodeNextVersion && (!validatorInfo.next_version || validatorInfo.next_version != otherNodeNextVersion)))
+    metrics.casper_validator_should_be_upgraded.set(1);
+
+  setTimeout(checkNextUpgradeFromOtherNodes, 120*60*1000);
+})();
 
 (async function requestRPC() {
   casperClient.getValidatorsInfo()
@@ -135,42 +160,6 @@ async function requestEraInfo() {
     .then(data => preparingNodeData(data));
 
   setTimeout(requestRPC, 60000);
-})();
-
-(async function checkNextUpgradeFromOtherNodes() {
-  let theirVersion = null;
-  let theirNextVersion = null
-
-  KNOWN_NODES.forEach(ip => {
-    let cClient = new casper.CasperServiceByJsonRPC(`http://${ip}:7777/rpc`);
-    let ourPeer;
-
-    cClient.getStatus()
-      .then(data => {
-        ourPeer = data.peers.filter(x => x.node_id == NODE_ID)[0];
-        if (ourPeer) nodePublicIP = ourPeer.address.split(':')[0];
-
-        theirVersion = data.api_version;
-
-        if (data.next_upgrade) {
-          metrics.casper_validator_next_upgrade.set({ node_ip: ip, next_version: data.next_upgrade.protocol_version }, 1);
-          if (theirNextVersion < data.next_upgrade.protocol_version) {
-            theirNextVersion = data.next_upgrade.protocol_version;
-          }
-        }
-
-        if (ip == OUR_NODE) {
-          if ((data.api_version != theirVersion) || (theirNextVersion && (!data.next_upgrade || data.next_upgrade.protocol_version != theirNextVersion))) {
-            // Should upgrade now
-            metrics.casper_validator_should_be_upgraded.set(1);
-          }
-        }
-      });
-    
-    sleep(1000);
-  });
-
-  setTimeout(checkNextUpgradeFromOtherNodes, 120*60*1000);
 })();
 
 app.get('/metrics', async (req, res) => {
