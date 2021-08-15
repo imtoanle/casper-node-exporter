@@ -76,7 +76,7 @@ function calculateDelegatorStakedAmount(data) {
 }
 
 function convertToCSPR(motes) {
-  return Math.trunc(parseInt(motes) / 1e9);
+  return parseInt(motes) / 1e9;
 }
 
 function getLatestReward() {
