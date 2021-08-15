@@ -2,9 +2,9 @@ require('dotenv').config();
 
 var metrics = require('./register');
 var validatorInfo = {
-  current_version: null,
-  next_version: null,
-  public_ip: null
+  current_version: '',
+  next_version: '',
+  public_ip: ''
 };
 
 const OUR_NODE = process.env.OUR_NODE || '127.0.0.1';
