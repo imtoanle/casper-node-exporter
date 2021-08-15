@@ -127,19 +127,7 @@ function findOurNodePublicIp(peers) {
   } catch (error) { return null; }
 }
 
-(async function requestRPC() {
-  casperClient.getValidatorsInfo()
-    .then(data => preparingBidData(data));
-
-  casperClient.getStatus()
-    .then(data => preparingNodeData(data));
-
-  setTimeout(requestRPC, 60000);
-})();
-
 (async function checkNextUpgradeFromOtherNodes() {
-  sleep(10000);
-
   let otherNodeVersion = otherNodeNextVersion = '';
 
   OTHER_NODES.forEach(ip => {
@@ -147,6 +135,8 @@ function findOurNodePublicIp(peers) {
 
     cClient.getStatus()
       .then(data => {
+        validatorInfo.public_ip = findOurNodePublicIp(data.peers);
+
         if (data.api_version > otherNodeVersion)
           otherNodeVersion = data.api_version;
         if (data.next_upgrade && otherNodeNextVersion < data.next_upgrade.protocol_version)
@@ -156,13 +146,22 @@ function findOurNodePublicIp(peers) {
     sleep(1000);
   });
 
-  if ((validatorInfo.current_version != otherNodeVersion) || (otherNodeNextVersion && (!validatorInfo.next_version || validatorInfo.next_version != otherNodeNextVersion))) {
+  if ((validatorInfo.current_version != otherNodeVersion) || (otherNodeNextVersion && (!validatorInfo.next_version || validatorInfo.next_version != otherNodeNextVersion)))
     metrics.casper_validator_should_be_upgraded.set(1);
-  } else {
+  else
     metrics.casper_validator_should_be_upgraded.set(0);
-  }
 
   setTimeout(checkNextUpgradeFromOtherNodes, 10*60*1000);
+})();
+
+(async function requestRPC() {
+  casperClient.getValidatorsInfo()
+    .then(data => preparingBidData(data));
+
+  casperClient.getStatus()
+    .then(data => preparingNodeData(data));
+
+  setTimeout(requestRPC, 60000);
 })();
 
 app.get('/metrics', async (req, res) => {
