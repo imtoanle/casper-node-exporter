@@ -41,12 +41,13 @@ const casper_validator_block_local_era = new client.Gauge({
 const casper_validator_build_version = new client.Gauge({
   name: 'casper_validator_build_version',
   help: 'Casper Build Version',
-  labelNames: ['public_ip', 'local_ip', 'api_version']
+  labelNames: ['public_ip', 'local_ip', 'api_version', 'next_version']
 });
 
 const casper_validator_should_be_upgraded = new client.Gauge({
   name: 'casper_validator_should_be_upgraded',
-  help: 'Casper Next Should Be Upgraded'
+  help: 'Casper Next Should Be Upgraded',
+  labelNames: ['next_version']
 });
 
 const casper_validator_era_rewards = new client.Gauge({

@@ -12,11 +12,12 @@ const VALIDATOR_PUBLIC_KEY = process.env.VALIDATOR_PUBLIC_KEY;
 const NODE_ID = process.env.NODE_ID;
 const PORT = process.env.PORT || 8111;
 const OTHER_NODES = [
-  "47.251.14.254",
+  "135.181.56.68",
   "206.189.47.102",
   "134.209.243.124",
   "148.251.190.103",
-  "167.172.32.44"
+  "167.172.32.44",
+  "75.119.142.204"
 ];
 
 const express = require('express');
@@ -49,7 +50,7 @@ function preparingNodeData(data) {
   metrics.casper_validator_block_local_height.set(lastAddedBlock.height);
   metrics.casper_validator_peers.set(data.peers.length);
   metrics.casper_validator_build_version.reset();
-  metrics.casper_validator_build_version.set({ public_ip: validatorInfo.public_ip, local_ip: OUR_NODE, api_version: data.api_version }, 1);
+  metrics.casper_validator_build_version.set({ public_ip: validatorInfo.public_ip, local_ip: OUR_NODE, api_version: data.api_version, next_version: (data.next_upgrade && data.next_upgrade.protocol_version) }, 1);
 
   validatorInfo.current_version = data.api_version;
   validatorInfo.next_version = data.next_upgrade && data.next_upgrade.protocol_version;
@@ -140,10 +141,10 @@ function findOurNodePublicIp(peers) {
 (async function checkNextUpgradeFromOtherNodes() {
   let otherNodeVersion = otherNodeNextVersion = '';
 
-  OTHER_NODES.forEach(ip => {
+  for (const ip of OTHER_NODES) {
     let cClient = new casper.CasperServiceByJsonRPC(`http://${ip}:7777/rpc`);
 
-    cClient.getStatus()
+    await cClient.getStatus()
       .then(data => {
         validatorInfo.public_ip = findOurNodePublicIp(data.peers);
 
@@ -151,13 +152,12 @@ function findOurNodePublicIp(peers) {
           otherNodeVersion = data.api_version;
         if (data.next_upgrade && otherNodeNextVersion < data.next_upgrade.protocol_version)
           otherNodeNextVersion = data.next_upgrade.protocol_version;
+        
       });
-    
-    sleep(1000);
-  });
+  };
 
   if ((validatorInfo.current_version < otherNodeVersion) || (otherNodeNextVersion && (!validatorInfo.next_version || validatorInfo.next_version != otherNodeNextVersion))) {
-    metrics.casper_validator_should_be_upgraded.set(1);
+    metrics.casper_validator_should_be_upgraded.set({ next_version: otherNodeNextVersion }, 1);
   } else {
     metrics.casper_validator_should_be_upgraded.set(0);
   }
