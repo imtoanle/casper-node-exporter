@@ -156,10 +156,11 @@ function findOurNodePublicIp(peers) {
       });
   };
 
+  metrics.casper_validator_should_be_upgraded.reset();
   if ((validatorInfo.current_version < otherNodeVersion) || (otherNodeNextVersion && (!validatorInfo.next_version || validatorInfo.next_version != otherNodeNextVersion))) {
     metrics.casper_validator_should_be_upgraded.set({ next_version: otherNodeNextVersion }, 1);
   } else {
-    metrics.casper_validator_should_be_upgraded.set(0);
+    metrics.casper_validator_should_be_upgraded.set({ next_version: null }, 0);
   }
 
   setTimeout(checkNextUpgradeFromOtherNodes, 10*60*1000);
