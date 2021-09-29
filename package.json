@@ -3,7 +3,6 @@
     "casper-js-sdk": "^2.4.0",
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
-    "lightstep-opentelemetry-launcher-node": "^0.24.0",
     "prom-client": "^13.1.0"
   }
 }
