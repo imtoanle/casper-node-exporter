@@ -1,4 +1,5 @@
 require('dotenv').config();
+const process = require('process');
 
 var metrics = require('./register');
 var validatorInfo = {
@@ -165,6 +166,10 @@ function findOurNodePublicIp(peers) {
 
   setTimeout(checkNextUpgradeFromOtherNodes, 10*60*1000);
 })();
+
+process.on('uncaughtException', (error, source) => {
+  metrics.casper_validator_is_active.set(0);
+});
 
 app.get('/metrics', async (req, res) => {
     res.setHeader('Content-Type', metrics.register.contentType);
