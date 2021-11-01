@@ -152,8 +152,8 @@ function findOurNodePublicIp(peers) {
           otherNodeVersion = data.api_version;
         if (data.next_upgrade && otherNodeNextVersion < data.next_upgrade.protocol_version)
           otherNodeNextVersion = data.next_upgrade.protocol_version;
-        
-      });
+      })
+      .catch( e => console.log(e) );
   };
 
   metrics.casper_validator_should_be_upgraded.reset();
