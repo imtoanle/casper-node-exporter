@@ -14,7 +14,6 @@ const NODE_ID = process.env.NODE_ID;
 const PORT = process.env.PORT || 8111;
 const OTHER_NODES = [
   "135.181.56.68",
-  "206.189.47.102",
   "134.209.243.124",
   "148.251.190.103",
   "167.172.32.44",
