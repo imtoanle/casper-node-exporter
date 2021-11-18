@@ -15,9 +15,7 @@ const PORT = process.env.PORT || 8111;
 const OTHER_NODES = [
   "135.181.56.68",
   "134.209.243.124",
-  "148.251.190.103",
-  "167.172.32.44",
-  "75.119.142.204"
+  "148.251.190.103"
 ];
 
 const express = require('express');
