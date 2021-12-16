@@ -9,7 +9,7 @@ var validatorInfo = {
 };
 
 const OUR_NODE = process.env.OUR_NODE || '127.0.0.1';
-const VALIDATOR_PUBLIC_KEY = process.env.VALIDATOR_PUBLIC_KEY;
+const VALIDATOR_PUBLIC_KEY = process.env.VALIDATOR_PUBLIC_KEY.toLowerCase();
 const NODE_ID = process.env.NODE_ID;
 const PORT = process.env.PORT || 8111;
 const OTHER_NODES = [
@@ -30,7 +30,7 @@ function sleep(ms) {
 }
 
 function preparingBidData(data) {
-  let bidData = data.auction_state.bids.filter((obj) => obj.public_key == VALIDATOR_PUBLIC_KEY)[0];
+  let bidData = data.auction_state.bids.filter((obj) => obj.public_key.toLowerCase() == VALIDATOR_PUBLIC_KEY)[0];
   let selfStakedAmount = convertToCSPR(bidData.bid.staked_amount);
   let delegatorStakedAmount = calculateDelegatorStakedAmount(bidData);
 
@@ -86,7 +86,7 @@ function isValidatorActive(bidData) {
 function calculateEraRewards(eraInfo) {
   return eraInfo.StoredValue.EraInfo.seigniorageAllocations
     .map(x => x.Delegator || x.Validator)
-    .filter(x => x && x.validatorPublicKey == VALIDATOR_PUBLIC_KEY)
+    .filter(x => x && x.validatorPublicKey.toLowerCase() == VALIDATOR_PUBLIC_KEY)
     .map(x => convertToCSPR(x.amount))
     .reduce((a, b) => a + b, 0);
 }
