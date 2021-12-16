@@ -61,7 +61,7 @@ function preparingNodeData(data) {
 function findValidatorPosition(eraValidators) {
   return eraValidators[1].validator_weights
     .sort((a, b) => b.weight - a.weight)
-    .findIndex(a => a.public_key == VALIDATOR_PUBLIC_KEY) + 1;
+    .findIndex(a => a.public_key.toLowerCase() == VALIDATOR_PUBLIC_KEY) + 1;
 }
 
 function calculateDelegatorStakedAmount(data) {
