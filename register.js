@@ -56,6 +56,12 @@ const casper_validator_era_rewards = new client.Gauge({
   labelNames: ['era_id']
 });
 
+const casper_validator_relative_average_performances = new client.Gauge({
+  name: 'casper_validator_relative_average_performances',
+  help: 'Casper Relative Average Performances',
+  labelNames: ['era_id']
+});
+
 const casper_validator_current_apr = new client.Gauge({
   name: 'casper_validator_current_apr',
   help: 'Casper Current APR'
@@ -83,6 +89,7 @@ register.registerMetric(casper_validator_should_be_upgraded);
 register.registerMetric(casper_validator_current_apr);
 register.registerMetric(casper_validator_position);
 register.registerMetric(casper_validator_era_rewards);
+register.registerMetric(casper_validator_relative_average_performances);
 register.registerMetric(casper_validator_peers);
 
 module.exports = {
@@ -98,6 +105,7 @@ module.exports = {
   casper_validator_current_apr,
   casper_validator_position,
   casper_validator_era_rewards,
+  casper_validator_relative_average_performances,
   casper_validator_peers,
   register
 };

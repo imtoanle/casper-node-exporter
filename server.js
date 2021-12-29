@@ -1,5 +1,6 @@
 require('dotenv').config();
 const process = require('process');
+const axios = require('axios').default;
 
 var metrics = require('./register');
 var validatorInfo = {
@@ -12,6 +13,7 @@ const OUR_NODE = process.env.OUR_NODE || '127.0.0.1';
 const VALIDATOR_PUBLIC_KEY = process.env.VALIDATOR_PUBLIC_KEY.toLowerCase();
 const NODE_ID = process.env.NODE_ID;
 const PORT = process.env.PORT || 8111;
+const PERFORMANCE_API = process.env.PERFORMANCE_API || 'https://event-store-api-clarity-mainnet.make.services'
 const OTHER_NODES = [
   "135.181.56.68",
   "134.209.243.124",
@@ -79,6 +81,30 @@ function getLatestReward() {
   } catch (error) { return 0; }
 }
 
+function setAveragePerformancesMetrics(eraId) {
+  axios.get(`${PERFORMANCE_API}/validators/${VALIDATOR_PUBLIC_KEY}/relative-average-performances`, {
+    params: {
+      page: 1,
+      limit: 1,
+      order_direction: 'DESC',
+      era_id: eraId
+    }
+  })
+  .then(function (response) {
+    metrics.casper_validator_relative_average_performances.reset();
+    metrics.casper_validator_relative_average_performances.set({ era_id: eraId }, calculatePerformances(response.data.data));
+  })
+  .catch(function (error) {
+    console.log(error);
+  });
+}
+
+function calculatePerformances(data) {
+  if (data && data.length > 0) {
+    return data[0].average_score;
+  } else return 0;
+}
+
 function isValidatorActive(bidData) {
   return (bidData.bid.inactive == false && getLatestReward() > 0) ? 1 : 0;
 }
@@ -112,6 +138,7 @@ async function requestEraInfo() {
 
     if (eraInfo) {
       setRewardsMetrics(eraInfo);
+      setAveragePerformancesMetrics(eraInfo.eraId);
       return;
     }
 
