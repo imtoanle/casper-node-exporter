@@ -12,12 +12,10 @@ var validatorInfo = {
 const OUR_NODE = process.env.OUR_NODE || '127.0.0.1';
 const VALIDATOR_PUBLIC_KEY = process.env.VALIDATOR_PUBLIC_KEY.toLowerCase();
 const NODE_ID = process.env.NODE_ID;
-const PORT = process.env.PORT || 8111;
+const PORT = 8111;
 const PERFORMANCE_API = process.env.PERFORMANCE_API || 'https://event-store-api-clarity-mainnet.make.services'
 const OTHER_NODES = [
-  "135.181.56.68",
-  "134.209.243.124",
-  "148.251.190.103"
+  "https://event-store-api-clarity-mainnet.make.services/rpc"
 ];
 
 const express = require('express');
@@ -166,8 +164,8 @@ function findOurNodePublicIp(peers) {
 (async function checkNextUpgradeFromOtherNodes() {
   let otherNodeVersion = otherNodeNextVersion = '';
 
-  for (const ip of OTHER_NODES) {
-    let cClient = new casper.CasperServiceByJsonRPC(`http://${ip}:7777/rpc`);
+  for (const url of OTHER_NODES) {
+    let cClient = new casper.CasperServiceByJsonRPC(url);
 
     await cClient.getStatus()
       .then(data => {
